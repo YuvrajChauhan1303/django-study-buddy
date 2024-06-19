@@ -1,12 +1,15 @@
 from django.shortcuts import render, redirect
 from django.db.models import Q
+from django.contrib.auth.decorators import login_required
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.forms import UserCreationForm
 
 from .models import Room, Topic, User
 from .forms import RoomForm
 
-# from django.http import HttpResponse
+from django.http import HttpResponse
 
 # rooms = [
 #     {'id' : 1 , 'name' : 'Let\'s Learn Python'},
@@ -33,6 +36,7 @@ def Rooms(request, pk):
 
     return render(request, 'base/rooms.html', context)
 
+@login_required(login_url = 'login')
 def RoomCreate(request):
     form = RoomForm()
 
@@ -46,9 +50,13 @@ def RoomCreate(request):
     context = {'form' : form}
     return render(request, 'base/room_form.html', context)
 
+@login_required(login_url = 'login')
 def RoomUpdate(request, pk):
     room = Room.objects.get(id=pk)
     form = RoomForm(instance=room)
+
+    if request.user != room.host:
+        return HttpResponse('You\'re not Allowed Here!')
 
     if request.method == "POST":
         form  = RoomForm(request.POST, instance=room)
@@ -60,17 +68,26 @@ def RoomUpdate(request, pk):
     context = {'form' : form}
     return render(request, 'base/room_form.html', context)
 
+@login_required(login_url = 'login')
 def RoomDelete(request, pk):
     room = Room.objects.get(id=pk)
 
     if request.method == "POST":
         room.delete()
         return redirect('home')
+    
+    if request.user != room.host:
+        return HttpResponse('You\'re not Allowed Here!')
 
     context = {'obj' : room}
     return render(request, 'base/delete.html', context)
     
 def LoginPage(request):
+
+    page = 'login'
+
+    if request.user.is_authenticated:
+        return redirect('home')
 
     if request.method == "POST":
         username = request.POST.get('username')
@@ -90,9 +107,26 @@ def LoginPage(request):
         else:
             messages.error(request, "Username OR Password does not exist.")
 
-    context = {}
+    context = {'page' : page}
     return render(request, 'base/login_register.html', context)
 
 def LogoutUser(request):
     logout(request) 
     return redirect('login')
+
+def RegisterUser(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.username = user.username.lower()
+            user.save()
+            login(request, user)
+            return redirect('home')
+        else:
+            messages.error(request, 'An error occurred during registration!')
+    else:
+        form = UserCreationForm()
+
+    return render(request, 'base/login_register.html', {'form': form})
