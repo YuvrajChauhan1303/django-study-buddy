@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.db.models import Q
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+
 from .models import Room, Topic, User
 from .forms import RoomForm
 
@@ -93,5 +94,5 @@ def LoginPage(request):
     return render(request, 'base/login_register.html', context)
 
 def LogoutUser(request):
-
+    logout(request) 
     return redirect('login')
